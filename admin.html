@@ -296,13 +296,13 @@ onAuthStateChanged(auth, user => {
 window.addProduct = async function(){
 
     const data = {
-        title: title.value,
-        thumbnail: thumbnail.value,
-        video: video.value,
-        desc: desc.value
+        title: document.getElementById("title").value,
+        thumbnail: document.getElementById("thumbnail").value,
+        video: document.getElementById("video").value,
+        desc: document.getElementById("desc").value
     };
 
-    const cat = cat.value;
+    const cat = document.getElementById("cat").value;
 
     await addDoc(collection(db, cat), data);
 
