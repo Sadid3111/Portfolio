@@ -33,6 +33,19 @@ body{
                 inset -3px -3px 6px #ffffff;
 }
 
+.auth{
+    width:300px;
+    margin:100px auto;
+    padding:30px;
+    text-align:center;
+}
+
+#logoutBtn{
+    position:fixed;
+    top:20px;
+    right:20px;
+}
+    
 /* Title */
 .logo{
     font-size:24px;
@@ -165,6 +178,15 @@ button:hover{
 
 <body>
 
+<div id="authBox" class="auth neu">
+    <h2>Admin Login</h2>
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+</div>
+
+<button id="logoutBtn" onclick="logout()" style="display:none;">Logout</button>
+    
 <div class="header neu">
     <div>
         <div class="logo">Portfolio Admin Panel</div>
@@ -222,7 +244,10 @@ button:hover{
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } 
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+const auth = getAuth(app);
+    
 const firebaseConfig = {
   apiKey: "AIzaSyDSnDOiZSuMCPYapiQRo8t4BuOMPjuUwok",
   authDomain: "portfolio-mostashfi.firebaseapp.com",
@@ -232,6 +257,37 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+window.login = async function(){
+    try{
+        await signInWithEmailAndPassword(auth, email.value, password.value);
+    }catch(e){
+        alert("Login failed");
+    }
+}
+window.logout = async function(){
+    await signOut(auth);
+}
+
+onAuthStateChanged(auth, user => {
+
+    if(user){
+        // Logged in
+        document.getElementById("authBox").style.display = "none";
+        document.querySelector(".wrapper").style.display = "flex";
+        document.getElementById("logoutBtn").style.display = "block";
+
+        loadProducts();
+
+    }else{
+        // Not logged in
+        document.getElementById("authBox").style.display = "block";
+        document.querySelector(".wrapper").style.display = "none";
+        document.getElementById("logoutBtn").style.display = "none";
+    }
+
+});
+
+    
 // ADD
 window.addProduct = async function(){
 
@@ -301,7 +357,6 @@ window.deleteProduct = async function(cat,id){
     }
 }
 
-loadProducts();
 
 </script>
 
