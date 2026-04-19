@@ -24,6 +24,28 @@ body{
     padding:20px 30px;
 }
 
+.modal{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.3);
+    display:none;
+    justify-content:center;
+    align-items:center;
+    z-index:1000;
+}
+
+.modal-content{
+    width:350px;
+    padding:25px;
+    border-radius:20px;
+    background:#e0e5ec;
+    box-shadow: 10px 10px 20px #b8bcc2,
+                -10px -10px 20px #ffffff;
+}
+
 .status{
     font-size:12px;
     padding:6px 12px;
@@ -111,6 +133,7 @@ input, select, textarea{
 /* Button */
 button{
     padding:12px;
+    margin:6px;   /* adds gap around each button */
     border:none;
     border-radius:12px;
     background:#e0e5ec;
@@ -175,6 +198,24 @@ button:hover{
 </style>
 
 </head>
+
+<div id="editModal" class="modal">
+    <div class="modal-content neu">
+
+        <h2>Edit Product</h2>
+
+        <input id="editTitle" placeholder="Title">
+        <input id="editThumbnail" placeholder="Thumbnail URL">
+        <input id="editVideo" placeholder="Video URL">
+        <textarea id="editDesc" placeholder="Description"></textarea>
+
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button onclick="saveEdit()">Save</button>
+            <button onclick="closeModal()">Cancel</button>
+        </div>
+
+    </div>
+</div>
 
 <body>
 
@@ -243,11 +284,28 @@ button:hover{
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } 
-from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    
+import { 
+    getFirestore, 
+    collection, 
+    addDoc, 
+    getDocs, 
+    deleteDoc, 
+    doc,
+    query,
+    where,
+    updateDoc
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+import { 
+    getAuth, 
+    signInWithEmailAndPassword, 
+    onAuthStateChanged, 
+    signOut 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+
+// 🔥 FIREBASE INIT
 const firebaseConfig = {
   apiKey: "AIzaSyDSnDOiZSuMCPYapiQRo8t4BuOMPjuUwok",
   authDomain: "portfolio-mostashfi.firebaseapp.com",
@@ -258,6 +316,9 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+
+// ================= AUTH =================
+
 window.login = async function(){
     try{
         const email = document.getElementById("email").value;
@@ -267,23 +328,21 @@ window.login = async function(){
     }catch(e){
         alert("Login failed: " + e.message);
     }
-}
+};
+
 window.logout = async function(){
     await signOut(auth);
-}
+};
 
 onAuthStateChanged(auth, user => {
 
     if(user){
-        // Logged in
         document.getElementById("authBox").style.display = "none";
         document.querySelector(".wrapper").style.display = "flex";
         document.getElementById("logoutBtn").style.display = "block";
 
         loadProducts();
-
     }else{
-        // Not logged in
         document.getElementById("authBox").style.display = "block";
         document.querySelector(".wrapper").style.display = "none";
         document.getElementById("logoutBtn").style.display = "none";
@@ -291,8 +350,9 @@ onAuthStateChanged(auth, user => {
 
 });
 
-    
-// ADD
+
+// ================= ADD PRODUCT =================
+
 window.addProduct = async function(){
 
     const data = {
@@ -308,59 +368,142 @@ window.addProduct = async function(){
 
     alert("Added!");
     loadProducts();
-}
+};
 
-// LOAD ALL
+
+// ================= LOAD PRODUCTS =================
+
 async function loadProducts(){
 
     const list = document.getElementById("list");
     list.innerHTML = "";
 
     const categories = [
-    "electronics",
-    "beverages",
-    "cosmetics",
-    "furniture",
-    "packaging",
-    "kitchenware",
-    "fashion",
-    "luxury",
-    "gaming",
-    "home_decor"
+        "electronics","beverages","cosmetics","furniture",
+        "packaging","kitchenware","fashion","luxury",
+        "gaming","home_decor"
     ];
 
     for (let cat of categories){
 
         const snap = await getDocs(collection(db, cat));
 
-        snap.forEach(d => {
+        for (let d of snap.docs){
 
             const item = d.data();
+
+            // ❤️ GET LIKE COUNT
+            const likesSnap = await getDocs(
+                query(
+                    collection(db,"likes"),
+                    where("productId","==", d.id)
+                )
+            );
+
+            const likeCount = likesSnap.size;
 
             const div = document.createElement("div");
             div.className = "card";
 
+            // ✅ SAFE DATA STORAGE
+            div.dataset.cat = cat;
+            div.dataset.id = d.id;
+            div.dataset.title = item.title;
+            div.dataset.thumbnail = item.thumbnail;
+            div.dataset.video = item.video;
+            div.dataset.desc = item.desc;
+
             div.innerHTML = `
                 <img src="${item.thumbnail}" class="thumb" onerror="this.style.display='none'">
+                
                 <div class="title">${item.title}</div>
                 <div class="cat">${cat}</div>
-                <button onclick="deleteProduct('${cat}','${d.id}')">Delete</button>
+
+                <div style="margin:8px 0;font-size:14px;">
+                    ❤️ ${likeCount}
+                </div>
+
+                <button class="editBtn">Edit</button>
+                <button class="deleteBtn">Delete</button>
             `;
 
+            // ✅ EDIT BUTTON FIX
+            div.querySelector(".editBtn").addEventListener("click", function(){
+
+                editProduct(
+                    div.dataset.cat,
+                    div.dataset.id,
+                    div.dataset.title,
+                    div.dataset.thumbnail,
+                    div.dataset.video,
+                    div.dataset.desc
+                );
+
+            });
+
+            // ✅ DELETE BUTTON FIX
+            div.querySelector(".deleteBtn").addEventListener("click", function(){
+                deleteProduct(div.dataset.cat, div.dataset.id);
+            });
+
             list.appendChild(div);
-        });
+        }
     }
 }
 
-// DELETE
+
+// ================= EDIT MODAL =================
+
+let editState = {
+    cat: null,
+    id: null
+};
+
+window.editProduct = function(cat,id,title,thumb,video,desc){
+
+    editState.cat = cat;
+    editState.id = id;
+
+    document.getElementById("editTitle").value = title;
+    document.getElementById("editThumbnail").value = thumb;
+    document.getElementById("editVideo").value = video;
+    document.getElementById("editDesc").value = desc;
+
+    document.getElementById("editModal").style.display = "flex";
+};
+
+window.saveEdit = async function(){
+
+    const newTitle = document.getElementById("editTitle").value;
+    const newThumb = document.getElementById("editThumbnail").value;
+    const newVideo = document.getElementById("editVideo").value;
+    const newDesc = document.getElementById("editDesc").value;
+
+    await updateDoc(doc(db, editState.cat, editState.id), {
+        title: newTitle,
+        thumbnail: newThumb,
+        video: newVideo,
+        desc: newDesc
+    });
+
+    closeModal();
+    loadProducts();
+};
+
+window.closeModal = function(){
+    document.getElementById("editModal").style.display = "none";
+};
+
+
+// ================= DELETE =================
+
 window.deleteProduct = async function(cat,id){
 
     if(confirm("Delete this product?")){
         await deleteDoc(doc(db, cat, id));
         loadProducts();
     }
-}
-
+};
 
 </script>
 

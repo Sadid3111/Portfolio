@@ -145,6 +145,19 @@ border-radius:10px;
 backdrop-filter:blur(6px);
 }
 
+.heart{
+    position:absolute;
+    top:10px;
+    right:10px;
+    z-index:5;
+    font-size:18px;
+    color:white;
+    background:rgba(0,0,0,0.4);
+    padding:8px;
+    border-radius:50%;
+    cursor:pointer;
+}
+
 /* Expanded */
 .expanded{
 grid-column:span 2;
@@ -329,7 +342,16 @@ box-shadow:6px 6px 12px #a3b1c6,-6px -6px 12px #fff;
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+import { 
+    getFirestore, 
+    collection, 
+    getDocs, 
+    addDoc,
+    query,
+    where
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyDSnDOiZSuMCPYapiQRo8t4BuOMPjuUwok",
@@ -340,40 +362,67 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+
+// ❤️ LIKE FUNCTION
+window.likeProduct = async function(e,cat,id){
+    e.stopPropagation();
+
+    try{
+        await addDoc(collection(db,"likes"), {
+            cat: cat,
+            productId: id,
+            time: Date.now()
+        });
+
+        alert("❤️ Liked!");
+    }catch(err){
+        console.error(err);
+        alert("Error liking product");
+    }
+};
+
+
+// LOAD PRODUCTS
 async function loadProducts(){
 
     const categories = [
-    "electronics",
-    "beverages",
-    "cosmetics",
-    "furniture",
-    "packaging",
-    "kitchenware",
-    "fashion",
-    "luxury",
-    "gaming",
-    "home_decor"
+        "electronics",
+        "beverages",
+        "cosmetics",
+        "furniture",
+        "packaging",
+        "kitchenware",
+        "fashion",
+        "luxury",
+        "gaming",
+        "home_decor"
     ];
 
     for (let cat of categories){
 
         const container = document.getElementById(cat);
+        if(!container) continue;
+
         container.innerHTML = "";
 
         const querySnapshot = await getDocs(collection(db, cat));
 
-        querySnapshot.forEach(doc => {
-            const item = doc.data();
+        querySnapshot.forEach(docSnap => {
+
+            const item = docSnap.data();
 
             const card = document.createElement("div");
             card.className = "card";
 
-            // store ID (important)
-            card.setAttribute("data-id", doc.id);
+            card.setAttribute("data-id", docSnap.id);
             card.setAttribute("data-cat", cat);
 
             card.innerHTML = `
                 <div class="card-thumbnail" style="background-image:url('${item.thumbnail}')"></div>
+
+                <div class="heart" onclick="likeProduct(event,'${cat}','${docSnap.id}')">
+                    <i class="fas fa-heart"></i>
+                </div>
 
                 <div class="card-content">
                     <h3>${item.title}</h3>
@@ -396,7 +445,10 @@ async function loadProducts(){
     activateCards();
 }
 
+
+// CARD INTERACTION
 function activateCards(){
+
     const cards = document.querySelectorAll('.card');
 
     cards.forEach(card => {
@@ -410,17 +462,22 @@ function activateCards(){
             });
 
             card.classList.toggle('expanded');
-
         });
 
-        card.querySelector('.close-btn').addEventListener('click', function(e){
-            e.stopPropagation();
-            card.classList.remove('expanded');
-        });
+        const closeBtn = card.querySelector('.close-btn');
+
+        if(closeBtn){
+            closeBtn.addEventListener('click', function(e){
+                e.stopPropagation();
+                card.classList.remove('expanded');
+            });
+        }
 
     });
 }
 
+
+// INIT
 loadProducts();
 
 </script>
